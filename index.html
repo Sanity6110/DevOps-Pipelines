@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darts Scorer</title>
+<style>
+  :root {
+    --bg: #11151c;
+    --panel: #1b2230;
+    --panel-2: #232c3e;
+    --accent: #e8443a;
+    --green: #2e9e5b;
+    --text: #eef1f6;
+    --muted: #8a94a6;
+    --gold: #f0b432;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+  }
+  h1 { font-size: 1.5rem; letter-spacing: 1px; margin-bottom: 12px; }
+  h1 .dart { color: var(--accent); }
+
+  .screen { width: 100%; max-width: 760px; }
+  .hidden { display: none !important; }
+
+  /* ---------- Setup screen ---------- */
+  .card {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .option-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .option-row button {
+    flex: 1;
+    min-width: 70px;
+    padding: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .option-row button.selected { border-color: var(--accent); background: #36240f00; background: var(--panel-2); box-shadow: inset 0 0 0 100px rgba(232,68,58,0.15); }
+  .player-inputs { display: flex; flex-direction: column; gap: 8px; }
+  .player-inputs input {
+    padding: 12px;
+    font-size: 1rem;
+    background: var(--panel-2);
+    border: 1px solid #303b52;
+    border-radius: 8px;
+    color: var(--text);
+  }
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .btn-primary:active { filter: brightness(1.15); }
+
+  /* ---------- Game screen ---------- */
+  .players { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .player {
+    flex: 1;
+    min-width: 150px;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 14px;
+    border: 2px solid transparent;
+    transition: border-color .15s;
+  }
+  .player.active { border-color: var(--gold); }
+  .player .name { font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .player .legs { font-size: .8rem; color: var(--gold); }
+  .player .score { font-size: 2.6rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .player .stats { font-size: .78rem; color: var(--muted); }
+  .player .checkout { font-size: .85rem; color: var(--green); font-weight: 600; min-height: 1.2em; margin-top: 2px; }
+
+  .turn-bar {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .darts { display: flex; gap: 8px; }
+  .dart-slot {
+    width: 64px;
+    height: 44px;
+    background: var(--panel-2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--muted);
+  }
+  .dart-slot.filled { color: var(--text); background: #2c3850; }
+  .turn-total { font-size: 1.4rem; font-weight: 800; color: var(--gold); }
+  .message { min-height: 1.4em; text-align: center; margin-bottom: 10px; font-weight: 600; }
+  .message.bust { color: var(--accent); }
+  .message.win { color: var(--green); }
+
+  .keypad { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .multipliers { display: flex; gap: 8px; margin-bottom: 10px; }
+  .multipliers button {
+    flex: 1;
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .multipliers button.selected { border-color: var(--gold); color: var(--gold); }
+  .numbers { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .numbers button {
+    padding: 13px 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    background: var(--panel-2);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .numbers button:active { background: #384560; }
+  .numbers button:disabled { opacity: .35; cursor: default; }
+  .numbers .wide { grid-column: span 2; }
+  .numbers .miss { color: var(--muted); }
+  .numbers .bull { color: var(--accent); font-weight: 700; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .actions button {
+    flex: 1;
+    padding: 13px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #fff;
+  }
+  .btn-undo { background: #5a4a1e; }
+  .btn-newgame { background: #444f63; }
+  @media (max-width: 520px) {
+    .numbers { grid-template-columns: repeat(5, 1fr); }
+    .player .score { font-size: 2rem; }
+    .dart-slot { width: 52px; }
+  }
+</style>
+</head>
+<body>
+<h1><span class="dart">&#127919;</span> DARTS SCORER</h1>
+
+<!-- ============ SETUP ============ -->
+<div id="setup" class="screen">
+  <div class="card">
+    <h2>Game</h2>
+    <div class="option-row" id="game-options">
+      <button data-start="301">301</button>
+      <button data-start="501" class="selected">501</button>
+      <button data-start="701">701</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Checkout</h2>
+    <div class="option-row" id="out-options">
+      <button data-out="double" class="selected">Double out</button>
+      <button data-out="straight">Straight out</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Players</h2>
+    <div class="option-row" id="count-options" style="margin-bottom:12px">
+      <button data-count="1">1</button>
+      <button data-count="2" class="selected">2</button>
+      <button data-count="3">3</button>
+      <button data-count="4">4</button>
+    </div>
+    <div class="player-inputs" id="player-inputs"></div>
+  </div>
+  <button class="btn-primary" id="start-btn">Start Game</button>
+</div>
+
+<!-- ============ GAME ============ -->
+<div id="game" class="screen hidden">
+  <div class="players" id="players"></div>
+
+  <div class="turn-bar">
+    <div class="darts">
+      <div class="dart-slot" id="slot-0">&ndash;</div>
+      <div class="dart-slot" id="slot-1">&ndash;</div>
+      <div class="dart-slot" id="slot-2">&ndash;</div>
+    </div>
+    <div class="turn-total" id="turn-total">0</div>
+  </div>
+
+  <div class="message" id="message"></div>
+
+  <div class="keypad">
+    <div class="multipliers">
+      <button id="mult-1" class="selected">Single</button>
+      <button id="mult-2">Double</button>
+      <button id="mult-3">Treble</button>
+    </div>
+    <div class="numbers" id="numbers"></div>
+    <div class="actions">
+      <button class="btn-undo" id="undo-btn">&#8630; Undo</button>
+      <button class="btn-newgame" id="newgame-btn">New Game</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------------- Setup state ---------------- */
+const setup = { start: 501, out: "double", count: 2 };
+
+function bindOptionRow(rowId, attr, onPick) {
+  const row = document.getElementById(rowId);
+  row.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    row.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    onPick(btn.dataset[attr]);
+  });
+}
+bindOptionRow("game-options", "start", v => setup.start = parseInt(v, 10));
+bindOptionRow("out-options", "out", v => setup.out = v);
+bindOptionRow("count-options", "count", v => { setup.count = parseInt(v, 10); renderPlayerInputs(); });
+
+function renderPlayerInputs() {
+  const box = document.getElementById("player-inputs");
+  const existing = [...box.querySelectorAll("input")].map(i => i.value);
+  box.innerHTML = "";
+  for (let i = 0; i < setup.count; i++) {
+    const input = document.createElement("input");
+    input.maxLength = 20;
+    input.placeholder = "Player " + (i + 1);
+    input.value = existing[i] || "";
+    box.appendChild(input);
+  }
+}
+renderPlayerInputs();
+
+/* ---------------- Game state ---------------- */
+let game = null;
+
+function newGame() {
+  const names = [...document.querySelectorAll("#player-inputs input")]
+    .map((i, idx) => i.value.trim() || "Player " + (idx + 1));
+  game = {
+    start: setup.start,
+    doubleOut: setup.out === "double",
+    players: names.map(name => ({
+      name, score: setup.start, legs: 0, dartsThrown: 0, pointsScored: 0,
+    })),
+    current: 0,           // index of player at the oche
+    turnDarts: [],        // darts thrown this turn: {label, value, isDouble}
+    turnStartScore: setup.start,
+    history: [],          // snapshots for undo
+    over: false,
+  };
+  game.turnStartScore = game.players[0].score;
+  document.getElementById("setup").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  setMessage("");
+  render();
+}
+
+document.getElementById("start-btn").addEventListener("click", newGame);
+document.getElementById("newgame-btn").addEventListener("click", () => {
+  document.getElementById("game").classList.add("hidden");
+  document.getElementById("setup").classList.remove("hidden");
+});
+
+/* ---------------- Keypad ---------------- */
+let multiplier = 1;
+[1, 2, 3].forEach(m => {
+  document.getElementById("mult-" + m).addEventListener("click", () => {
+    multiplier = m;
+    [1, 2, 3].forEach(x =>
+      document.getElementById("mult-" + x).classList.toggle("selected", x === m));
+    renderNumbers();
+  });
+});
+
+function renderNumbers() {
+  const grid = document.getElementById("numbers");
+  grid.innerHTML = "";
+  for (let n = 1; n <= 20; n++) {
+    const b = document.createElement("button");
+    b.textContent = n;
+    b.addEventListener("click", () => throwDart(n, multiplier));
+    grid.appendChild(b);
+  }
+  const bull25 = document.createElement("button");
+  bull25.textContent = "25";
+  bull25.className = "bull wide";
+  bull25.disabled = multiplier === 3;
+  bull25.addEventListener("click", () => throwDart(25, multiplier));
+  grid.appendChild(bull25);
+
+  const miss = document.createElement("button");
+  miss.textContent = "Miss";
+  miss.className = "miss wide";
+  miss.addEventListener("click", () => throwDart(0, 1));
+  grid.appendChild(miss);
+}
+renderNumbers();
+
+document.getElementById("undo-btn").addEventListener("click", undo);
+
+/* ---------------- Core logic ---------------- */
+function dartLabel(n, mult) {
+  if (n === 0) return "MISS";
+  if (n === 25) return mult === 2 ? "BULL" : "25";
+  return (mult === 1 ? "" : mult === 2 ? "D" : "T") + n;
+}
+
+function throwDart(n, mult) {
+  if (!game || game.over) return;
+  if (n === 25 && mult === 3) return; // no treble bull
+
+  game.history.push(snapshot());
+
+  const value = n * mult;
+  const player = game.players[game.current];
+  game.turnDarts.push({ label: dartLabel(n, mult), value, isDouble: mult === 2 });
+  player.score -= value;
+  player.dartsThrown++;
+
+  // reset multiplier to single after each dart, like real scoring apps
+  if (multiplier !== 1) {
+    multiplier = 1;
+    [1, 2, 3].forEach(x =>
+      document.getElementById("mult-" + x).classList.toggle("selected", x === 1));
+    renderNumbers();
+  }
+
+  const last = game.turnDarts[game.turnDarts.length - 1];
+
+  if (player.score === 0 && (!game.doubleOut || last.isDouble)) {
+    winLeg(player);
+  } else if (player.score < 0 || (game.doubleOut && player.score <= 1 && player.score >= 0 && player.score !== 0) ||
+             (player.score === 0 && game.doubleOut && !last.isDouble)) {
+    bust(player);
+  } else if (game.turnDarts.length === 3) {
+    endTurn(player, false);
+  } else {
+    setMessage("");
+    render();
+  }
+}
+
+function bust(player) {
+  // restore score to start of turn; darts thrown still count
+  player.score = game.turnStartScore;
+  setMessage("BUST! " + player.name + " stays on " + player.score, "bust");
+  nextPlayer();
+}
+
+function winLeg(player) {
+  player.legs++;
+  player.pointsScored += game.turnStartScore; // they scored everything remaining
+  setMessage("&#127942; " + escapeHtml(player.name) + " wins the leg!", "win", true);
+  game.over = true;
+  render();
+  // auto-start next leg after a moment, loser/next player throws first
+  setTimeout(() => {
+    if (!game || !game.over) return;
+    game.players.forEach(p => { p.score = game.start; });
+    game.over = false;
+    game.turnDarts = [];
+    game.current = (game.current + 1) % game.players.length;
+    game.turnStartScore = game.start;
+    game.history = [];
+    setMessage("New leg &mdash; " + escapeHtml(game.players[game.current].name) + " to throw", "", true);
+    render();
+  }, 2200);
+}
+
+function endTurn(player, wasBust) {
+  if (!wasBust) {
+    const scored = game.turnStartScore - player.score;
+    player.pointsScored += scored;
+    setMessage(player.name + " scored " + scored);
+  }
+  nextPlayer();
+}
+
+function nextPlayer() {
+  game.turnDarts = [];
+  game.current = (game.current + 1) % game.players.length;
+  game.turnStartScore = game.players[game.current].score;
+  render();
+}
+
+function snapshot() {
+  return {
+    players: game.players.map(p => ({ ...p })),
+    current: game.current,
+    turnDarts: game.turnDarts.map(d => ({ ...d })),
+    turnStartScore: game.turnStartScore,
+    over: game.over,
+  };
+}
+
+function undo() {
+  if (!game || game.history.length === 0 || game.over) return;
+  const s = game.history.pop();
+  game.players = s.players;
+  game.current = s.current;
+  game.turnDarts = s.turnDarts;
+  game.turnStartScore = s.turnStartScore;
+  game.over = s.over;
+  setMessage("");
+  render();
+}
+
+/* ---------------- Checkout table ---------------- */
+const CHECKOUTS = {
+  170:"T20 T20 BULL",167:"T20 T19 BULL",164:"T20 T18 BULL",161:"T20 T17 BULL",
+  160:"T20 T20 D20",158:"T20 T20 D19",157:"T20 T19 D20",156:"T20 T20 D18",
+  155:"T20 T19 D19",154:"T20 T18 D20",153:"T20 T19 D18",152:"T20 T20 D16",
+  151:"T20 T17 D20",150:"T20 T18 D18",149:"T20 T19 D16",148:"T20 T16 D20",
+  147:"T20 T17 D18",146:"T20 T18 D16",145:"T20 T15 D20",144:"T20 T20 D12",
+  143:"T20 T17 D16",142:"T20 T14 D20",141:"T20 T19 D12",140:"T20 T16 D16",
+  139:"T19 T14 D20",138:"T20 T18 D12",137:"T19 T16 D16",136:"T20 T20 D8",
+  135:"T20 T17 D12",134:"T20 T14 D16",133:"T20 T19 D8",132:"T20 T16 D12",
+  131:"T20 T13 D16",130:"T20 T18 D8",129:"T19 T16 D12",128:"T18 T14 D16",
+  127:"T20 T17 D8",126:"T19 T19 D6",125:"25 T20 D20",124:"T20 T16 D8",
+  123:"T19 T16 D9",122:"T18 T18 D7",121:"T20 T11 D14",120:"T20 20 D20",
+  119:"T19 T12 D13",118:"T20 18 D20",117:"T20 17 D20",116:"T20 16 D20",
+  115:"T20 15 D20",114:"T20 14 D20",113:"T20 13 D20",112:"T20 12 D20",
+  111:"T20 11 D20",110:"T20 10 D20",109:"T20 9 D20",108:"T20 8 D20",
+  107:"T19 10 D20",106:"T20 6 D20",105:"T20 5 D20",104:"T18 10 D20",
+  103:"T19 6 D20",102:"T20 2 D20",101:"T17 10 D20",100:"T20 D20",
+  99:"T19 10 D16",98:"T20 D19",97:"T19 D20",96:"T20 D18",95:"T19 D19",
+  94:"T18 D20",93:"T19 D18",92:"T20 D16",91:"T17 D20",90:"T18 D18",
+  89:"T19 D16",88:"T16 D20",87:"T17 D18",86:"T18 D16",85:"T15 D20",
+  84:"T20 D12",83:"T17 D16",82:"BULL D16",81:"T19 D12",80:"T20 D10",
+  79:"T13 D20",78:"T18 D12",77:"T19 D10",76:"T20 D8",75:"T17 D12",
+  74:"T14 D16",73:"T19 D8",72:"T16 D12",71:"T13 D16",70:"T18 D8",
+  69:"T19 D6",68:"T20 D4",67:"T17 D8",66:"T10 D18",65:"T19 D4",
+  64:"T16 D8",63:"T13 D12",62:"T10 D16",61:"T15 D8",60:"20 D20",
+  59:"19 D20",58:"18 D20",57:"17 D20",56:"16 D20",55:"15 D20",
+  54:"14 D20",53:"13 D20",52:"12 D20",51:"11 D20",50:"10 D20",
+  49:"9 D20",48:"8 D20",47:"15 D16",46:"6 D20",45:"13 D16",
+  44:"12 D16",43:"11 D16",42:"10 D16",41:"9 D16",40:"D20",
+  39:"7 D16",38:"D19",37:"5 D16",36:"D18",35:"3 D16",34:"D17",
+  33:"1 D16",32:"D16",31:"15 D8",30:"D15",29:"13 D8",28:"D14",
+  27:"11 D8",26:"D13",25:"9 D8",24:"D12",23:"7 D8",22:"D11",
+  21:"5 D8",20:"D10",19:"3 D8",18:"D9",17:"1 D8",16:"D8",
+  15:"7 D4",14:"D7",13:"5 D4",12:"D6",11:"3 D4",10:"D5",
+  9:"1 D4",8:"D4",7:"3 D2",6:"D3",5:"1 D2",4:"D2",3:"1 D1",2:"D1",
+};
+
+function checkoutHint(score, dartsLeft) {
+  if (!game.doubleOut) return score <= 60 * dartsLeft && score > 0 ? "On a finish" : "";
+  const combo = CHECKOUTS[score];
+  if (!combo) return "";
+  if (combo.split(" ").length > dartsLeft) return "";
+  return "Out: " + combo;
+}
+
+/* ---------------- Rendering ---------------- */
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function setMessage(text, cls, isHtml) {
+  const el = document.getElementById("message");
+  if (isHtml) el.innerHTML = text; else el.textContent = text;
+  el.className = "message" + (cls ? " " + cls : "");
+}
+
+function render() {
+  if (!game) return;
+  const box = document.getElementById("players");
+  box.innerHTML = "";
+  game.players.forEach((p, i) => {
+    const active = i === game.current && !game.over;
+    const avg = p.dartsThrown > 0 ? (p.pointsScored / p.dartsThrown * 3).toFixed(1) : "0.0";
+    const dartsLeft = active ? 3 - game.turnDarts.length : 3;
+    const hint = active ? checkoutHint(p.score, dartsLeft) : "";
+    const div = document.createElement("div");
+    div.className = "player" + (active ? " active" : "");
+    div.innerHTML =
+      '<div class="name"><span>' + escapeHtml(p.name) + '</span>' +
+      '<span class="legs">&#9733; ' + p.legs + '</span></div>' +
+      '<div class="score">' + p.score + '</div>' +
+      '<div class="stats">avg ' + avg + ' &middot; darts ' + p.dartsThrown + '</div>' +
+      '<div class="checkout">' + hint + '</div>';
+    box.appendChild(div);
+  });
+
+  for (let i = 0; i < 3; i++) {
+    const slot = document.getElementById("slot-" + i);
+    const d = game.turnDarts[i];
+    slot.textContent = d ? d.label : "–";
+    slot.classList.toggle("filled", !!d);
+  }
+  document.getElementById("turn-total").textContent =
+    game.turnDarts.reduce((s, d) => s + d.value, 0);
+}
+</script>
+</body>
+</html>
