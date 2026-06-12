@@ -8,8 +8,12 @@ dependencies — just open `index.html` in a browser.
 - **301 / 501 / 701** game modes
 - **1–4 players** with custom names
 - **Double-out or straight-out** finish rules
-- **Per-dart entry**: pick Single / Double / Treble, then tap the number
-  (25 and bullseye supported; the multiplier resets to Single after each dart)
+- **Two entry modes**:
+  - *Dart by dart* — pick Single / Double / Treble, then tap the number
+    (25 and bullseye supported; the multiplier resets to Single after each dart)
+  - *Turn total* — type the whole visit's score on a numeric keypad
+    (keyboard digits, Backspace, and Enter also work); impossible totals
+    like 179 and finishes with no checkout route are rejected
 - **Bust detection**: going below zero, leaving 1, or finishing without a
   double (in double-out mode) restores the score to the start of the turn
 - **Checkout suggestions** for any finishable score up to 170

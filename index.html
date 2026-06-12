@@ -124,6 +124,45 @@
   .message.win { color: var(--green); }
 
   .keypad { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .entry-modes { display: flex; gap: 8px; margin-bottom: 12px; }
+  .entry-modes button {
+    flex: 1;
+    padding: 10px;
+    font-size: .95rem;
+    font-weight: 700;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: var(--panel-2);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .entry-modes button.selected { border-color: var(--accent); color: var(--text); }
+  .manual-display {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 2rem;
+    font-weight: 800;
+    text-align: right;
+    margin-bottom: 10px;
+    min-height: 58px;
+    font-variant-numeric: tabular-nums;
+  }
+  .manual-display .placeholder { color: var(--muted); font-size: 1rem; font-weight: 400; }
+  .manual-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .manual-grid button {
+    padding: 16px 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    background: var(--panel-2);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .manual-grid button:active { background: #384560; }
+  .manual-grid .btn-clear { color: var(--accent); font-size: 1rem; }
+  .manual-grid .btn-enter { background: var(--green); font-size: 1rem; }
   .multipliers { display: flex; gap: 8px; margin-bottom: 10px; }
   .multipliers button {
     flex: 1;
@@ -222,12 +261,35 @@
   <div class="message" id="message"></div>
 
   <div class="keypad">
-    <div class="multipliers">
-      <button id="mult-1" class="selected">Single</button>
-      <button id="mult-2">Double</button>
-      <button id="mult-3">Treble</button>
+    <div class="entry-modes">
+      <button id="mode-dart" class="selected">Dart by dart</button>
+      <button id="mode-manual">Turn total</button>
     </div>
-    <div class="numbers" id="numbers"></div>
+    <div id="dart-entry">
+      <div class="multipliers">
+        <button id="mult-1" class="selected">Single</button>
+        <button id="mult-2">Double</button>
+        <button id="mult-3">Treble</button>
+      </div>
+      <div class="numbers" id="numbers"></div>
+    </div>
+    <div id="manual-entry" class="hidden">
+      <div class="manual-display" id="manual-display"><span class="placeholder">Enter turn score&hellip;</span></div>
+      <div class="manual-grid">
+        <button data-digit="1">1</button>
+        <button data-digit="2">2</button>
+        <button data-digit="3">3</button>
+        <button data-digit="4">4</button>
+        <button data-digit="5">5</button>
+        <button data-digit="6">6</button>
+        <button data-digit="7">7</button>
+        <button data-digit="8">8</button>
+        <button data-digit="9">9</button>
+        <button class="btn-clear" id="manual-clear">Clear</button>
+        <button data-digit="0">0</button>
+        <button class="btn-enter" id="manual-enter">Enter</button>
+      </div>
+    </div>
     <div class="actions">
       <button class="btn-undo" id="undo-btn">&#8630; Undo</button>
       <button class="btn-newgame" id="newgame-btn">New Game</button>
@@ -291,6 +353,7 @@ function newGame() {
   document.getElementById("setup").classList.add("hidden");
   document.getElementById("game").classList.remove("hidden");
   setMessage("");
+  clearManualInput();
   render();
 }
 
@@ -299,6 +362,110 @@ document.getElementById("newgame-btn").addEventListener("click", () => {
   document.getElementById("game").classList.add("hidden");
   document.getElementById("setup").classList.remove("hidden");
 });
+
+/* ---------------- Entry mode ---------------- */
+let entryMode = "dart"; // "dart" | "manual"
+
+function setEntryMode(mode) {
+  entryMode = mode;
+  document.getElementById("mode-dart").classList.toggle("selected", mode === "dart");
+  document.getElementById("mode-manual").classList.toggle("selected", mode === "manual");
+  document.getElementById("dart-entry").classList.toggle("hidden", mode !== "dart");
+  document.getElementById("manual-entry").classList.toggle("hidden", mode !== "manual");
+  document.querySelector(".turn-bar").classList.toggle("hidden", mode !== "dart");
+  clearManualInput();
+}
+document.getElementById("mode-dart").addEventListener("click", () => {
+  // don't allow switching away mid-visit in either direction
+  if (game && game.turnDarts.length > 0) return;
+  setEntryMode("dart");
+});
+document.getElementById("mode-manual").addEventListener("click", () => {
+  if (game && game.turnDarts.length > 0) return;
+  setEntryMode("manual");
+});
+
+/* ---------------- Manual (turn total) entry ---------------- */
+let manualInput = "";
+
+// 3-dart totals that cannot be scored
+const IMPOSSIBLE_TOTALS = new Set([163, 166, 169, 172, 173, 175, 176, 178, 179]);
+// scores with no 3-dart double-out finish
+const NO_FINISH = new Set([159, 162, 163, 165, 166, 168, 169]);
+
+function renderManualDisplay() {
+  const el = document.getElementById("manual-display");
+  el.innerHTML = manualInput === ""
+    ? '<span class="placeholder">Enter turn score&hellip;</span>'
+    : manualInput;
+}
+
+function clearManualInput() {
+  manualInput = "";
+  renderManualDisplay();
+}
+
+document.querySelector("#manual-entry .manual-grid").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn || !btn.dataset.digit) return;
+  if (manualInput.length >= 3) return;
+  manualInput += btn.dataset.digit;
+  renderManualDisplay();
+});
+document.getElementById("manual-clear").addEventListener("click", clearManualInput);
+document.getElementById("manual-enter").addEventListener("click", submitTurnScore);
+
+document.addEventListener("keydown", (e) => {
+  if (entryMode !== "manual" || !game || game.over) return;
+  if (document.getElementById("game").classList.contains("hidden")) return;
+  if (/^[0-9]$/.test(e.key) && manualInput.length < 3) {
+    manualInput += e.key;
+    renderManualDisplay();
+  } else if (e.key === "Backspace") {
+    manualInput = manualInput.slice(0, -1);
+    renderManualDisplay();
+  } else if (e.key === "Enter") {
+    submitTurnScore();
+  }
+});
+
+function submitTurnScore() {
+  if (!game || game.over || manualInput === "") return;
+  const scored = parseInt(manualInput, 10);
+
+  if (scored > 180 || IMPOSSIBLE_TOTALS.has(scored)) {
+    setMessage(scored + " is not possible with three darts", "bust");
+    clearManualInput();
+    return;
+  }
+
+  const player = game.players[game.current];
+  const newScore = player.score - scored;
+
+  if (game.doubleOut && newScore === 0 &&
+      (player.score > 170 || NO_FINISH.has(player.score))) {
+    setMessage("No checkout from " + player.score, "bust");
+    clearManualInput();
+    return;
+  }
+
+  game.history.push(snapshot());
+  player.dartsThrown += 3;
+  clearManualInput();
+
+  if (newScore === 0) {
+    player.score = 0;
+    winLeg(player);
+  } else if (newScore < 0 || (game.doubleOut && newScore === 1)) {
+    setMessage("BUST! " + player.name + " stays on " + player.score, "bust");
+    nextPlayer();
+  } else {
+    player.score = newScore;
+    player.pointsScored += scored;
+    setMessage(player.name + " scored " + scored);
+    nextPlayer();
+  }
+}
 
 /* ---------------- Keypad ---------------- */
 let multiplier = 1;
